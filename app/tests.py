@@ -1,15 +1,23 @@
-import json
+import pytest
 from app import app, db
-from app.models import Project
+from app.models import User
+from flask_login import login_user
 
-def test_add_project():
-    client = app.test_client()
-    response = client.post('/projects', json={'name': 'Project 1', 'description': 'A test project', 'status': 'active'})
-    assert response.status_code == 201
-    assert b'Project added' in response.data
+@pytest.fixture
+def client():
+    app.config['TESTING'] = True
+    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///test.db'
+    db.create_all()
+    yield app.test_client()
+    db.drop_all()
 
-def test_get_projects():
-    client = app.test_client()
-    response = client.get('/projects')
-    assert response.status_code == 200
-    assert len(json.loads(response.data)) > 0
+def test_register(client):
+    response = client.post('/register', data=dict(username='testuser', email='test@test.com', password='password'), follow_redirects=True)
+    assert b'Login' in response.data
+
+def test_login(client):
+    user = User(username='testuser', email='test@test.com', password='hashedpassword')
+    db.session.add(user)
+    db.session.commit()
+    response = client.post('/login', data=dict(email='test@test.com', password='password'), follow_redirects=True)
+    assert b'Dashboard' in response.data
